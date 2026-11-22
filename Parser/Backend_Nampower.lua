@@ -213,6 +213,10 @@ end
 
 local function GetUnitGuid(unit)
     if not unit then return nil end
+    if type(GetUnitGUID) == "function" then
+        local ok, g = pcall(GetUnitGUID, unit)
+        if ok and g and g ~= "" then return g end
+    end
     if type(UnitGUID) == "function" then
         local ok, g = pcall(UnitGUID, unit)
         if ok and g and g ~= "" then return g end

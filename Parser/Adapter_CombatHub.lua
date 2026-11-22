@@ -17,10 +17,6 @@ CombatHub:OnPostLogin(function()
         return
     end
 
-    local f = NP.frame
-    local origOnEvent = f:GetScript("OnEvent")
-    if type(origOnEvent) ~= "function" then return end
-
     local events = {
         "AUTO_ATTACK_SELF",
         "AUTO_ATTACK_OTHER",
@@ -53,9 +49,41 @@ CombatHub:OnPostLogin(function()
         "RAID_ROSTER_UPDATE",
     }
 
-    f:UnregisterAllEvents()
+    local function Attach()
+        if not NS or NS.combatBackend ~= "nampower" or not NP or not NP.frame then
+            return
+        end
+        local f = NP.frame
+        local origOnEvent = f:GetScript("OnEvent")
+        if type(origOnEvent) ~= "function" then return end
 
-    CombatHub:Subscribe("GreedMeter", "GreedMeter (Raid)", events, function(ev, a1, a2, a3, a4, a5, a6, a7, a8, a9)
-        CombatHub:InvokeFrameOnEvent(f, origOnEvent, ev, a1, a2, a3, a4, a5, a6, a7, a8, a9)
-    end, nil)
+        f:UnregisterAllEvents()
+
+        CombatHub:Subscribe("GreedMeter", "GreedMeter (Raid)", events, function(ev, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+            CombatHub:InvokeFrameOnEvent(f, origOnEvent, ev, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+        end, nil)
+    end
+
+    Attach()
+
+    if type(NP.Disable) == "function" and not NP._combatHubDisableHooked then
+        local origDisable = NP.Disable
+        NP.Disable = function()
+            CombatHub:Unsubscribe("GreedMeter")
+            return origDisable()
+        end
+        NP._combatHubDisableHooked = true
+    end
+
+    if type(NP.Enable) == "function" and not NP._combatHubEnableHooked then
+        local origEnable = NP.Enable
+        NP.Enable = function()
+            local ok = origEnable()
+            if ok then
+                Attach()
+            end
+            return ok
+        end
+        NP._combatHubEnableHooked = true
+    end
 end)
