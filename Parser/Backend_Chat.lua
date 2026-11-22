@@ -2295,15 +2295,8 @@ local function ParseMessage(event, message)
     end
     end
 
-    -- Nampower owns damage/heal/miss/absorb; stop most chat combat parsing here.
-    -- Reflection (Thorns, Lightning Shield, Fire Shield, etc.) has no reliable
-    -- Nampower structured event — keep chat reflect lines even when Nampower is on.
+    -- Nampower owns damage/heal/miss/absorb/damage-shields; stop chat combat parsing here.
     if skipCombatChat then
-        if string.find(message, "reflect", 1, true) or string.find(message, "Reflect", 1, true) then
-            if H.ParseReflectMessage and H.ParseReflectMessage(message) then
-                return
-            end
-        end
         return
     end
 

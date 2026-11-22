@@ -458,12 +458,6 @@ local function OnAutoAttack(isSelf)
             avoid = "parry"
         elseif victimState == VICTIM_BLOCK then
             avoid = "block"
-        elseif victimState == 6 then
-            avoid = "evade"
-        elseif victimState == 7 then
-            avoid = "immune"
-        elseif victimState == 8 then
-            avoid = "deflect"
         end
         if srcTracked then
             Parser:AddMiss(src, "Auto Attack", tgt, avoid)
@@ -567,14 +561,6 @@ local function OnSpellMiss(isSelf)
         avoid = "parry"
     elseif missNum == 5 or string.find(lower, "block", 1, true) then
         avoid = "block"
-    elseif missNum == 6 or string.find(lower, "evade", 1, true) then
-        avoid = "evade"
-    elseif missNum == 7 or missNum == 8 or string.find(lower, "immune", 1, true) then
-        avoid = "immune"
-    elseif missNum == 9 or string.find(lower, "deflect", 1, true) then
-        avoid = "deflect"
-    elseif missNum == 11 or string.find(lower, "reflect", 1, true) then
-        avoid = "reflect"
     end
 
     if IsTrackedAttacker(casterGuid, src) then

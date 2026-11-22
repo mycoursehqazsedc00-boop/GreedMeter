@@ -11,6 +11,7 @@ GreedMeter tracks damage, healing (including absorbs), dispels, interrupts, hard
 | **Nampower** | Structured combat events (`AUTO_ATTACK_*`, `SPELL_DAMAGE_EVENT_*`, `SPELL_MISS_*`, `SPELL_HEAL_BY_*`, `SPELL_DISPEL_BY_*`, `DAMAGE_SHIELD_*`, `AURA_CAST_*`, `DEBUFF_*`, `ENVIRONMENTAL_DMG_*`, `UNIT_DIED`) and `GetSpellRecField` | Optional |
 | **SuperWoW** | `RAW_COMBATLOG` fallback (when Nampower is absent), GUID unit resolution, `<guid>owner` pet/totem attribution, and `TargetUnit(guid)` threat targeting | Optional |
 | **UnitXP SP3** | `meleeAutoAttack` distance check for accurate 110% vs 130% pull-aggro thresholds in estimated threat mode | Optional |
+| **CombatHub** | Optional shared combat event coordinator (`Parser\Adapter_CombatHub.lua`) that shares a single Nampower event stream across compatible addons | Optional |
 
 ![GreedMeter](ScreenShots/GreedMeterWindows.png)
 ![GreedMeter](ScreenShots/GreedMeterThreat.png)
