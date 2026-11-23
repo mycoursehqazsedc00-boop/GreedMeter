@@ -2861,6 +2861,13 @@ local function BuildSettingsExtraPages(f, pageDisplay, pageAppearance, pageModes
             row.tankLossWarnGlowCb = tankGlowCb
 
             yy = yy - rowH
+            local tankTextOn = OM.GetSetting and OM:GetSetting("tankLossWarnText") == true
+            local tankTextCb = MakeCheckbox(pageModes, "Tank threat-loss message", baseX + 6, yy, tankTextOn, function(checked)
+                if OM.SetSetting then OM:SetSetting("tankLossWarnText", checked) end
+            end, cbSize, "Show an on-screen alert naming the mob and player who pulled aggro (works on current target and visible pack nameplates via ClassicAPI).")
+            row.tankLossWarnTextCb = tankTextCb
+
+            yy = yy - rowH
             local npGlowOn = OM.GetSetting and OM:GetSetting("nameplateThreatGlow") == true
             local npGlowCb = MakeCheckbox(pageModes, "Nameplate threat glow (ClassicAPI)", baseX + 6, yy, npGlowOn, function(checked)
                 if OM.SetSetting then OM:SetSetting("nameplateThreatGlow", checked) end
@@ -3021,6 +3028,7 @@ function UI.RefreshThreatVisibility(f)
             SafeSetEnabled(row.petAsTankCb, threatOn)
             SafeSetEnabled(row.tankLossWarnSoundCb, threatOn)
             SafeSetEnabled(row.tankLossWarnGlowCb, threatOn)
+            SafeSetEnabled(row.tankLossWarnTextCb, threatOn)
             SafeSetEnabled(row.nameplateThreatGlowCb, threatOn)
             SafeSetEnabled(row.tankLossWarnSlider, threatOn)
             SafeSetEnabled(row.threatWarnSoundCb, threatOn)

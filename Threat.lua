@@ -82,6 +82,9 @@ end
 if OM.defaults.tankLossWarnGlow == nil then
     OM.defaults.tankLossWarnGlow = true
 end
+if OM.defaults.tankLossWarnText == nil then
+    OM.defaults.tankLossWarnText = true
+end
 if OM.defaults.tankLossWarnPercent == nil then
     OM.defaults.tankLossWarnPercent = 90
 end
@@ -2244,9 +2247,15 @@ local warnGlowFrame = nil
 local warnSoundArmed = true
 local tankWarnSoundArmed = true
 local tankArmedTarget = false
+local tankTargetLossNotified = false
+local tankLossGlowUntil = 0
+local lastAggroAlertKey = nil
+local lastAggroAlertTime = 0
+local lastTankPackSoundTime = 0
 local HAS_CNAMEPLATE = false
 local activeNameplates = {}
 local plateGlowFrames = {}
+local plateWasTanking = {}
 
 -- Built-in client sounds for threat warning (key -> PlaySoundFile path)
 local WARN_SOUND_FILES = {
@@ -2421,18 +2430,58 @@ local function RunnerUpThreatPercentOnTarget()
     return maxOther
 end
 
+local function PlayThreatWarnSound()
+    local path = GetWarnSoundPath()
+    local ok = pcall(PlaySoundFile, path)
+    if not ok then
+        pcall(PlaySound, "RaidWarning")
+    end
+end
+
+local function NotifyTankAggroLoss(mobName, thiefName)
+    if not OM or not OM.GetSetting then return end
+    if OM:GetSetting("enableThreatMode") ~= true or OM:GetSetting("testMode") == true then return end
+    if not InPartyOrRaid() then return end
+
+    mobName = mobName or "Enemy"
+    thiefName = thiefName or "Someone"
+    local now = GetTime()
+    local key = mobName .. ":" .. thiefName
+    if key == lastAggroAlertKey and (now - lastAggroAlertTime) < 2.0 then
+        return
+    end
+    lastAggroAlertKey = key
+    lastAggroAlertTime = now
+
+    if OM:GetSetting("tankLossWarnText") == true and UIErrorsFrame and UIErrorsFrame.AddMessage then
+        UIErrorsFrame:AddMessage(string.format("Lost aggro: %s -> %s!", mobName, thiefName), 1.0, 0.25, 0.25, 1.0, 3)
+    end
+    if OM:GetSetting("tankLossWarnGlow") == true then
+        tankLossGlowUntil = now + 2.0
+        ShowThreatWarnGlow()
+    end
+    if OM:GetSetting("tankLossWarnSound") == true and (now - lastTankPackSoundTime) >= 1.5 then
+        lastTankPackSoundTime = now
+        tankWarnSoundArmed = false
+        PlayThreatWarnSound()
+    end
+end
+
 local function ShouldAlertTankThreatLoss()
     if not OM:GetSetting("enableThreatMode") then return false end
     if OM:GetSetting("testMode") == true then return false end
     if not InPartyOrRaid() then
         tankArmedTarget = false
+        tankTargetLossNotified = false
         return false
     end
 
     local tankSnd = OM:GetSetting("tankLossWarnSound") == true
     local tankGlow = OM:GetSetting("tankLossWarnGlow") == true
-    if not tankSnd and not tankGlow then
+    local tankText = OM:GetSetting("tankLossWarnText") == true
+    if not tankSnd and not tankGlow and not tankText then
         tankArmedTarget = false
+        tankTargetLossNotified = false
         return false
     end
 
@@ -2444,15 +2493,21 @@ local function ShouldAlertTankThreatLoss()
         local tt = "targettarget"
         if IsTankTargetSelf(tt) then
             tankArmedTarget = true
+            tankTargetLossNotified = false
             if RunnerUpThreatPercentOnTarget() >= threshold then
                 return true
             end
         elseif tankArmedTarget and UnitExists(tt) and not UnitIsUnit(tt, "target") then
             -- Was tanking this target and aggro switched to someone else
+            if not tankTargetLossNotified then
+                tankTargetLossNotified = true
+                NotifyTankAggroLoss(UnitName("target"), UnitName(tt))
+            end
             return true
         end
     else
         tankArmedTarget = false
+        tankTargetLossNotified = false
     end
 
     -- Multi-mob Tank mode (#TMTv1=) near-loss check
@@ -2469,15 +2524,11 @@ local function ShouldAlertTankThreatLoss()
         end
     end
 
-    return false
-end
-
-local function PlayThreatWarnSound()
-    local path = GetWarnSoundPath()
-    local ok = pcall(PlaySoundFile, path)
-    if not ok then
-        pcall(PlaySound, "RaidWarning")
+    if tankLossGlowUntil > GetTime() then
+        return true
     end
+
+    return false
 end
 
 local function UpdateThreatWarnings()
@@ -2577,9 +2628,20 @@ local function UpdateSingleNameplateGlow(plate, unit)
         HideNameplateGlow(plate)
         return
     end
-    if OM:GetSetting("enableThreatMode") ~= true or OM:GetSetting("nameplateThreatGlow") ~= true then
+    if OM:GetSetting("enableThreatMode") ~= true then
         HideNameplateGlow(plate)
         return
+    end
+    local npGlowOn = (OM:GetSetting("nameplateThreatGlow") == true)
+    local tankLossOn = (OM:GetSetting("tankLossWarnText") == true
+        or OM:GetSetting("tankLossWarnSound") == true
+        or OM:GetSetting("tankLossWarnGlow") == true)
+    if not npGlowOn and not tankLossOn then
+        HideNameplateGlow(plate)
+        return
+    end
+    if not npGlowOn then
+        HideNameplateGlow(plate)
     end
     if plate.IsShown and not plate:IsShown() then
         HideNameplateGlow(plate)
@@ -2602,7 +2664,11 @@ local function UpdateSingleNameplateGlow(plate, unit)
         return
     end
 
+    local trackKey = (UnitGUID and UnitGUID(unit)) or plate
+
     if IsTankTargetSelf(targetUnit) then
+        plateWasTanking[trackKey] = true
+        if not npGlowOn then return end
         -- Holding aggro: check if #TMTv1= reports near-loss for this mob GUID
         local threshold = tonumber(OM:GetSetting("tankLossWarnPercent")) or 90
         local nearLoss = false
@@ -2624,6 +2690,11 @@ local function UpdateSingleNameplateGlow(plate, unit)
         end
     else
         -- Mob is targeting someone else (tank lost threat / no aggro)
+        if plateWasTanking[trackKey] and not UnitIsUnit(targetUnit, unit) then
+            plateWasTanking[trackKey] = nil
+            NotifyTankAggroLoss(UnitName(unit), UnitName(targetUnit))
+        end
+        if not npGlowOn then return end
         local glow = EnsureNameplateGlow(plate)
         if glow then
             glow:SetBackdropBorderColor(1.0, 0.12, 0.12, 0.95)
@@ -2634,9 +2705,13 @@ end
 
 function Threat:RefreshNameplateGlows()
     if not HAS_CNAMEPLATE then return end
+    local npGlowOn = OM and OM.GetSetting and OM:GetSetting("nameplateThreatGlow") == true
+    local tankLossOn = OM and OM.GetSetting and (OM:GetSetting("tankLossWarnText") == true
+        or OM:GetSetting("tankLossWarnSound") == true
+        or OM:GetSetting("tankLossWarnGlow") == true)
     if not OM or not OM.GetSetting
         or OM:GetSetting("enableThreatMode") ~= true
-        or OM:GetSetting("nameplateThreatGlow") ~= true
+        or (not npGlowOn and not tankLossOn)
         or not (UnitAffectingCombat and UnitAffectingCombat("player"))
         or not InPartyOrRaid() then
         HideAllNameplateGlows()
@@ -3371,6 +3446,7 @@ eventFrame:SetScript("OnEvent", function()
             local plate = C_NamePlate.GetNamePlateForUnit(arg1)
             if plate then
                 activeNameplates[plate] = nil
+                plateWasTanking[plate] = nil
                 HideNameplateGlow(plate)
             end
         end
@@ -3404,6 +3480,7 @@ eventFrame:SetScript("OnEvent", function()
         -- Do NOT wipe tankModeThreats here — Tank mode needs to keep every
         -- distinct GUID (including multiple same-name mobs) across target swaps.
         tankArmedTarget = false
+        tankTargetLossNotified = false
         tankWarnSoundArmed = true
         ClearThreatTable()
         Threat.usingApi = false
@@ -3419,7 +3496,13 @@ eventFrame:SetScript("OnEvent", function()
     elseif event == "PLAYER_REGEN_ENABLED" then
         -- Leaving combat: drop the accumulated enemy list and flee flags
         tankArmedTarget = false
+        tankTargetLossNotified = false
         tankWarnSoundArmed = true
+        tankLossGlowUntil = 0
+        local pk
+        for pk in pairs(plateWasTanking) do
+            plateWasTanking[pk] = nil
+        end
         HideThreatWarnGlow()
         HideAllNameplateGlows()
         if not OM:GetSetting("testMode") then
@@ -3644,7 +3727,10 @@ eventFrame:SetScript("OnUpdate", function()
     if not OM or not OM.GetSetting then return end
     if not OM:GetSetting("enableThreatMode") then return end
     local anyThreatFrame = Threat:AnyFrameInThreatMode()
-    local npGlowActive = HAS_CNAMEPLATE and (OM:GetSetting("nameplateThreatGlow") == true)
+    local npGlowActive = HAS_CNAMEPLATE and (OM:GetSetting("nameplateThreatGlow") == true
+        or OM:GetSetting("tankLossWarnText") == true
+        or OM:GetSetting("tankLossWarnSound") == true
+        or OM:GetSetting("tankLossWarnGlow") == true)
     if not anyThreatFrame and not npGlowActive then return end
 
     if not anyThreatFrame then
@@ -3652,6 +3738,12 @@ eventFrame:SetScript("OnUpdate", function()
         if elapsed < 0.5 then return end
         elapsed = 0
         Threat:RefreshNameplateGlows()
+        if tankLossGlowUntil > 0 then
+            if tankLossGlowUntil <= GetTime() then
+                tankLossGlowUntil = 0
+            end
+            UpdateThreatWarnings()
+        end
         return
     end
 
@@ -3768,6 +3860,7 @@ function Threat:OnLoad()
         if OM.db.petAsTank == nil then OM.db.petAsTank = false end
         if OM.db.tankLossWarnSound == nil then OM.db.tankLossWarnSound = true end
         if OM.db.tankLossWarnGlow == nil then OM.db.tankLossWarnGlow = true end
+        if OM.db.tankLossWarnText == nil then OM.db.tankLossWarnText = true end
         if OM.db.tankLossWarnPercent == nil then OM.db.tankLossWarnPercent = 90 end
         if OM.db.nameplateThreatGlow == nil then OM.db.nameplateThreatGlow = true end
         if OM.db.threatView == nil then
@@ -3806,7 +3899,13 @@ function Threat:OnLoad()
             EnsureModeInList(checked)
             if not checked then
                 tankArmedTarget = false
+                tankTargetLossNotified = false
                 tankWarnSoundArmed = true
+                tankLossGlowUntil = 0
+                local pk
+                for pk in pairs(plateWasTanking) do
+                    plateWasTanking[pk] = nil
+                end
                 HideThreatWarnGlow()
                 HideAllNameplateGlows()
                 Threat:ClearTestData()

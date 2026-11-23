@@ -41,8 +41,21 @@ GreedMeter tracks damage, healing (including absorbs), dispels, interrupts, hard
 * **GUID & pet cache fixes:** Normalized `0x` GUID case across `Parser/API.lua`, prevented `RefreshGuidCacheFromUnits()` from overwriting generic pet names (`Bear`, `Cat`, `Wolf`, `Imp`, etc.) in `OM.heuristicPets`, and added SuperWoW `UnitExists` pet GUID fallback.
 * **Combat performance:** Reused GUID tracking tables in `Backend_Nampower.lua`, removed per-hit `fields` table allocation in `OnSpellDamage()`, and cached `name -> unit` tokens for `O(1)` overheal lookups in `FindUnitByName()`.
 * **Threat & TOC:** Added optional UnitXP SP3 `meleeAutoAttack` check for estimated pull-aggro thresholds and fixed `Threat.lua` casing in `GreedMeter.toc`.
-* **Tank threat-loss alerts:** Added configurable sound and red screen-edge glow alerts when you lose aggro on your current target or when a teammate's threat reaches the configurable `Warn at 2nd threat %` threshold (via `TWTv4=` / `#TMTv1=`).
+* **Tank threat-loss alerts:** Added configurable sound, red screen-edge glow, and on-screen `Lost aggro: <Mob> -> <Player>!` alerts (`UIErrorsFrame`) when you lose aggro on your current target or any tracked pack mob (via `C_NamePlate`), or when a teammate reaches `Warn at 2nd threat %` (`TWTv4=` / `#TMTv1=`).
 * **Nameplate threat glow (ClassicAPI):** Added event-driven nameplate threat borders (`C_NamePlate`) that glow red when an in-combat enemy targets someone else and amber when `#TMTv1=` reports a teammate nearing your threat threshold (compatible with both `pfUI` and default nameplates).
+
+## For Tanks (Multi-Mob & Raid Tanking)
+
+GreedMeter includes a dedicated **Tank** threat view and real-time aggro-loss alerts designed for both single-target bosses and multi-mob packs:
+
+1. **Enable Threat Mode:** Open `/gdm set` → **General** → check **Add threat mode**, then set **Threat view** to `Tank` (or `All` to keep both single-target and multi-mob Tank windows open).
+2. **Multi-Mob Tank List (`#TMTv1=`):** Lists all active enemies you are tanking, sorted with the most contested mob at the top, showing the runner-up player's name and threat %. With **SuperWoW**, clicking a row targets that exact mob GUID.
+3. **Tank Threat-Loss Alerts** (`/gdm set` → **Modes** → **Tank**):
+   * **Tank threat-loss sound:** Plays your selected warning sound when you lose aggro or a teammate reaches `Warn at 2nd threat %`.
+   * **Tank threat-loss glow:** Flashes a red screen-edge glow when aggro is lost or a teammate crosses `Warn at 2nd threat %`.
+   * **Tank threat-loss message:** Displays `Lost aggro: <Mob> -> <Player>!` on `UIErrorsFrame` for both your current target and any off-target mob in a pack (via `ClassicAPI` `C_NamePlate`).
+   * **Nameplate threat glow (ClassicAPI):** Outlines in-combat enemy nameplates in **red** when the mob is targeting someone else, or **amber** when `#TMTv1=` reports a teammate nearing `Warn at 2nd threat %` (compatible with both `pfUI` and default nameplates).
+   * **Use pet as Tank:** Scores tank-mode aggro from your pet/minion (`pettarget`) instead of your player character.
 
 ## Commands
 

@@ -71,6 +71,7 @@ OM.defaults = {
     petAsTank = false,    -- tank mode: score aggro from pet instead of player
     tankLossWarnSound = true, -- tank mode: play sound on threat loss or near-loss
     tankLossWarnGlow = true, -- tank mode: screen-edge glow on threat loss or near-loss
+    tankLossWarnText = true, -- tank mode: show on-screen alert with mob and player name
     tankLossWarnPercent = 90, -- tank mode: warn when 2nd threat reaches this %
     nameplateThreatGlow = true, -- ClassicAPI: glow enemy nameplates when losing/without threat
 }
@@ -153,6 +154,7 @@ OM.SETTINGS_GLOBAL_KEYS = {
     petAsTank = true,
     tankLossWarnSound = true,
     tankLossWarnGlow = true,
+    tankLossWarnText = true,
     tankLossWarnPercent = true,
     nameplateThreatGlow = true,
 }
