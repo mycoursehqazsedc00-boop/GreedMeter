@@ -8,6 +8,7 @@ GreedMeter tracks damage, healing (including absorbs), dispels, interrupts, hard
 
 | Mod | Purpose in this addon | Required? |
 |---|---|---|
+| **ClassicAPI** | Event-driven nameplate threat glow (`C_NamePlate`, `NAME_PLATE_UNIT_ADDED` / `NAME_PLATE_UNIT_REMOVED`) | Optional |
 | **Nampower** | Structured combat events (`AUTO_ATTACK_*`, `SPELL_DAMAGE_EVENT_*`, `SPELL_MISS_*`, `SPELL_HEAL_BY_*`, `SPELL_DISPEL_BY_*`, `DAMAGE_SHIELD_*`, `AURA_CAST_*`, `DEBUFF_*`, `ENVIRONMENTAL_DMG_*`, `UNIT_DIED`) and `GetSpellRecField` | Optional |
 | **SuperWoW** | `RAW_COMBATLOG` fallback (when Nampower is absent), GUID unit resolution, `<guid>owner` pet/totem attribution, and `TargetUnit(guid)` threat targeting | Optional |
 | **UnitXP SP3** | `meleeAutoAttack` distance check for accurate 110% vs 130% pull-aggro thresholds in estimated threat mode | Optional |
@@ -40,6 +41,8 @@ GreedMeter tracks damage, healing (including absorbs), dispels, interrupts, hard
 * **GUID & pet cache fixes:** Normalized `0x` GUID case across `Parser/API.lua`, prevented `RefreshGuidCacheFromUnits()` from overwriting generic pet names (`Bear`, `Cat`, `Wolf`, `Imp`, etc.) in `OM.heuristicPets`, and added SuperWoW `UnitExists` pet GUID fallback.
 * **Combat performance:** Reused GUID tracking tables in `Backend_Nampower.lua`, removed per-hit `fields` table allocation in `OnSpellDamage()`, and cached `name -> unit` tokens for `O(1)` overheal lookups in `FindUnitByName()`.
 * **Threat & TOC:** Added optional UnitXP SP3 `meleeAutoAttack` check for estimated pull-aggro thresholds and fixed `Threat.lua` casing in `GreedMeter.toc`.
+* **Tank threat-loss alerts:** Added configurable sound and red screen-edge glow alerts when you lose aggro on your current target or when a teammate's threat reaches the configurable `Warn at 2nd threat %` threshold (via `TWTv4=` / `#TMTv1=`).
+* **Nameplate threat glow (ClassicAPI):** Added event-driven nameplate threat borders (`C_NamePlate`) that glow red when an in-combat enemy targets someone else and amber when `#TMTv1=` reports a teammate nearing your threat threshold (compatible with both `pfUI` and default nameplates).
 
 ## Commands
 

@@ -69,6 +69,10 @@ OM.defaults = {
     threatWarnPercent = 90, -- warn when your threat % reaches this
     threatWarnSoundFile = "raidwarning", -- key into sound list
     petAsTank = false,    -- tank mode: score aggro from pet instead of player
+    tankLossWarnSound = true, -- tank mode: play sound on threat loss or near-loss
+    tankLossWarnGlow = true, -- tank mode: screen-edge glow on threat loss or near-loss
+    tankLossWarnPercent = 90, -- tank mode: warn when 2nd threat reaches this %
+    nameplateThreatGlow = true, -- ClassicAPI: glow enemy nameplates when losing/without threat
 }
 
 -- Per-character layout defaults
@@ -147,6 +151,10 @@ OM.SETTINGS_GLOBAL_KEYS = {
     customBarFonts = true,
     showPetThreat = true,
     petAsTank = true,
+    tankLossWarnSound = true,
+    tankLossWarnGlow = true,
+    tankLossWarnPercent = true,
+    nameplateThreatGlow = true,
 }
 
 local function IsGlobalSetting(key)

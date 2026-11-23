@@ -2845,6 +2845,35 @@ local function BuildSettingsExtraPages(f, pageDisplay, pageAppearance, pageModes
                 if UI.Refresh then UI:Refresh() end
             end, cbSize, "Score tank-mode aggro from your pet/minion instead of you.\nTracks pettarget and whether the pet holds aggro.\nServer tank API is still player-based — this is estimate + unit scan.\nSuperWoW recommended for stable enemy IDs.")
             row.petAsTankCb = petTankCb
+
+            yy = yy - rowH
+            local tankSndOn = OM.GetSetting and OM:GetSetting("tankLossWarnSound") == true
+            local tankSndCb = MakeCheckbox(pageModes, "Tank threat-loss sound", baseX + 6, yy, tankSndOn, function(checked)
+                if OM.SetSetting then OM:SetSetting("tankLossWarnSound", checked) end
+            end, cbSize, "Play the selected threat warning sound when you lose aggro on your current target or when a teammate reaches the near-loss % threshold.")
+            row.tankLossWarnSoundCb = tankSndCb
+
+            yy = yy - rowH
+            local tankGlowOn = OM.GetSetting and OM:GetSetting("tankLossWarnGlow") == true
+            local tankGlowCb = MakeCheckbox(pageModes, "Tank threat-loss glow", baseX + 6, yy, tankGlowOn, function(checked)
+                if OM.SetSetting then OM:SetSetting("tankLossWarnGlow", checked) end
+            end, cbSize, "Red screen-edge glow when you lose aggro on your current target or when a teammate reaches the near-loss % threshold.")
+            row.tankLossWarnGlowCb = tankGlowCb
+
+            yy = yy - rowH
+            local npGlowOn = OM.GetSetting and OM:GetSetting("nameplateThreatGlow") == true
+            local npGlowCb = MakeCheckbox(pageModes, "Nameplate threat glow (ClassicAPI)", baseX + 6, yy, npGlowOn, function(checked)
+                if OM.SetSetting then OM:SetSetting("nameplateThreatGlow", checked) end
+                if OM.modules and OM.modules.Threat and OM.modules.Threat.RefreshNameplateGlows then
+                    OM.modules.Threat:RefreshNameplateGlows()
+                end
+            end, cbSize, "Glow enemy nameplates in combat when you do not hold aggro (red) or when a teammate is close to pulling (amber).\nRequires ClassicAPI (C_NamePlate).")
+            row.nameplateThreatGlowCb = npGlowCb
+
+            yy = yy - rowH
+            local tankWarnSlider = MakeSlider(pageModes, "Warn at 2nd threat %", baseX + 6, yy, "tankLossWarnPercent", 50, 100, 1, 160)
+            row.tankLossWarnSlider = tankWarnSlider
+            yy = yy - 28
         end
 
         yy = yy - rowH - 6
@@ -2990,6 +3019,10 @@ function UI.RefreshThreatVisibility(f)
             end
             SafeSetEnabled(row.petThreatCb, threatOn)
             SafeSetEnabled(row.petAsTankCb, threatOn)
+            SafeSetEnabled(row.tankLossWarnSoundCb, threatOn)
+            SafeSetEnabled(row.tankLossWarnGlowCb, threatOn)
+            SafeSetEnabled(row.nameplateThreatGlowCb, threatOn)
+            SafeSetEnabled(row.tankLossWarnSlider, threatOn)
             SafeSetEnabled(row.threatWarnSoundCb, threatOn)
             SafeSetEnabled(row.threatWarnGlowCb, threatOn)
             SafeSetEnabled(row.threatWarnSlider, threatOn)
