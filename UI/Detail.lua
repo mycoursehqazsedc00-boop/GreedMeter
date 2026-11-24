@@ -464,10 +464,12 @@ local function HighlightTargetButtons(f)
     for i = 1, table.getn(f.targetButtons) do
         local btn = f.targetButtons[i]
         local selected = (btn.targetName == (f._targetFilter or "All"))
-        if selected then
-            btn:SetTextColor(1, 0.85, 0.3)
-        else
-            btn:SetTextColor(1, 1, 1)
+        if btn.label then
+            if selected then
+                btn.label:SetTextColor(1, 0.85, 0.3)
+            else
+                btn.label:SetTextColor(1, 1, 1)
+            end
         end
     end
 end

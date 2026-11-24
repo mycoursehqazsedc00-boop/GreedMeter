@@ -1847,7 +1847,7 @@ end
 -- Main parse loop
 -- ============================================================
 
-local function ParseEnemyDeath(message)
+local function ParseEnemyDeath(message, skipFriendlyDeath)
     if not message then return false end
     local name = nil
     -- "You die."
@@ -1869,7 +1869,9 @@ local function ParseEnemyDeath(message)
 
     name = NormalizeName(name)
     if OM.players[name] or name == UnitName("player") then
-        Parser:AddDeath(name, ST.lastHitOn[name])
+        if not skipFriendlyDeath then
+            Parser:AddDeath(name, ST.lastHitOn[name])
+        end
         return true
     end
     -- Hostile / other NPC death for boss detection
@@ -2251,13 +2253,13 @@ local function ParseMessage(event, message)
     end
     end -- not skipCombatChat (resist/miss)
 
-    -- Hostile deaths (unique-name boss detection)
+    -- Hostile deaths (unique-name boss detection); skip friendly deaths when Nampower owns combat
     if event == "CHAT_MSG_COMBAT_HOSTILE_DEATH"
     or event == "CHAT_MSG_COMBAT_FRIENDLY_DEATH"
     or string.find(message, " dies", 1, true)
     or string.find(message, "You die", 1, true)
     or string.find(message, "you die", 1, true) then
-        if H.ParseEnemyDeath(message) then
+        if H.ParseEnemyDeath(message, skipCombatChat) then
             return
         end
     end
@@ -2476,7 +2478,7 @@ local function ParseMessage(event, message)
                     if string.find(patLower, "crit", 1, true)
                         or string.find(msgLower, " crits ", 1, true)
                         or string.find(msgLower, " crit ", 1, true)
-                        or string.find(msgLower, "^you crit ", 1, true)
+                        or string.sub(msgLower, 1, 9) == "you crit "
                         or string.find(msgLower, " you crit ", 1, true) then
                         hitType = "crit"
                     elseif string.find(patLower, "glancing", 1, true)
@@ -2596,6 +2598,7 @@ function Chat.Enable(parseFrame, opts)
     if not parseFrame then
         parseFrame = CreateFrame("Frame", "GreedMeterChatParseFrame")
     end
+    parseFrame:UnregisterAllEvents()
     Chat.frame = parseFrame
 
     playerName = UnitName("player")

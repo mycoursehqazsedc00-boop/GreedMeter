@@ -111,28 +111,63 @@ local function HardCCDuration(name)
     return 0
 end
 
+local NAME_LOOKUP_UNITS = {
+    "player", "pet", "target", "targettarget", "mouseover",
+    "party1", "party2", "party3", "party4",
+    "partypet1", "partypet2", "partypet3", "partypet4",
+}
+
+local function SafeUnitGUID(unit)
+    if not unit then return nil end
+    if type(GetUnitGUID) == "function" then
+        local ok, g = pcall(GetUnitGUID, unit)
+        if ok and type(g) == "string" and g ~= "" then
+            return g
+        end
+    end
+    if type(UnitGUID) == "function" then
+        local ok, g = pcall(UnitGUID, unit)
+        if ok and type(g) == "string" and g ~= "" then
+            return g
+        end
+    end
+    if UnitExists then
+        local exists, g = UnitExists(unit)
+        if exists and type(g) == "string" and g ~= "" and g ~= unit then
+            return g
+        end
+    end
+    return nil
+end
+
+local function GuidsEqual(a, b)
+    if not a or not b then return false end
+    if a == b then return true end
+    return string.lower(tostring(a)) == string.lower(tostring(b))
+end
+
 local function NameFromGuid(guid)
     if not guid or guid == "" then return nil end
     if Parser.NameFromGuid then
         local n = Parser:NameFromGuid(guid)
         if n and n ~= "" then return n end
     end
-    if type(UnitGUID) ~= "function" then return nil end
-    local ok, my = pcall(UnitGUID, "player")
-    if ok and my and my == guid then
+    if type(GetNampowerVersion) == "function" or SUPERWOW_VERSION ~= nil then
+        local ok, n = pcall(UnitName, guid)
+        if ok and type(n) == "string" and n ~= "" and n ~= "Unknown" and n ~= UNKNOWNOBJECT then
+            return n
+        end
+    end
+    local my = SafeUnitGUID("player")
+    if my and GuidsEqual(my, guid) then
         return UnitName("player")
     end
-    local units = {
-        "player", "pet", "target", "targettarget", "mouseover",
-        "party1", "party2", "party3", "party4",
-        "partypet1", "partypet2", "partypet3", "partypet4",
-    }
     local i
-    for i = 1, table.getn(units) do
-        local u = units[i]
+    for i = 1, table.getn(NAME_LOOKUP_UNITS) do
+        local u = NAME_LOOKUP_UNITS[i]
         if UnitExists and UnitExists(u) then
-            local ok2, g = pcall(UnitGUID, u)
-            if ok2 and g and g == guid then
+            local g = SafeUnitGUID(u)
+            if g and GuidsEqual(g, guid) then
                 local n = UnitName(u)
                 if n and n ~= "" then
                     return n
@@ -144,16 +179,16 @@ local function NameFromGuid(guid)
         for i = 1, 40 do
             local u = "raid" .. i
             if UnitExists(u) then
-                local ok2, g = pcall(UnitGUID, u)
-                if ok2 and g and g == guid then
+                local g = SafeUnitGUID(u)
+                if g and GuidsEqual(g, guid) then
                     local n = UnitName(u)
                     if n and n ~= "" then return n end
                 end
             end
             local pu = "raidpet" .. i
             if UnitExists(pu) then
-                local ok2, g = pcall(UnitGUID, pu)
-                if ok2 and g and g == guid then
+                local g = SafeUnitGUID(pu)
+                if g and GuidsEqual(g, guid) then
                     local n = UnitName(pu)
                     if n and n ~= "" then return n end
                 end
@@ -170,7 +205,7 @@ local function CachePair(guid, name)
     end
 end
 
--- When GUID→name fails for an outgoing hit, prefer current target if GUID matches.
+-- When GUID->name fails for an outgoing hit, prefer current target only if GUID matches.
 local function ResolveTargetName(targetGuid, isOutgoingSelf)
     local tgt = NameFromGuid(targetGuid)
     if tgt then return tgt end
@@ -178,19 +213,15 @@ local function ResolveTargetName(targetGuid, isOutgoingSelf)
     if not (UnitExists and UnitExists("target")) then return nil end
     local tname = UnitName("target")
     if not tname or tname == "" then return nil end
-    if type(UnitGUID) == "function" and targetGuid then
-        local ok, g = pcall(UnitGUID, "target")
-        if ok and g then
-            if g == targetGuid then
-                CachePair(targetGuid, tname)
-                return tname
-            end
-            -- GUID known but different unit — do not guess
-            return nil
+    if targetGuid then
+        local g = SafeUnitGUID("target")
+        if g and GuidsEqual(g, targetGuid) then
+            CachePair(targetGuid, tname)
+            return tname
         end
+        -- Cannot verify GUID matches current target — do not guess
+        return nil
     end
-    -- No UnitGUID API: best-effort for solo dummy testing
-    if targetGuid then CachePair(targetGuid, tname) end
     return tname
 end
 
@@ -454,20 +485,25 @@ local function OnAutoAttack(isSelf)
         if tgtTracked then
             Parser:AddDamageTaken(tgt, totalDamage, src or "Unknown", "Auto Attack", hitType, partial, false)
         end
-    else
-        local avoid = "miss"
+    elseif totalAbsorb == 0 and totalResist == 0
+        and victimState ~= 6 and victimState ~= 7 and victimState ~= 8 then
+        local avoid = nil
         if victimState == VICTIM_DODGE then
             avoid = "dodge"
         elseif victimState == VICTIM_PARRY then
             avoid = "parry"
         elseif victimState == VICTIM_BLOCK then
             avoid = "block"
+        elseif victimState == VICTIM_MISS or victimState == nil then
+            avoid = "miss"
         end
-        if srcTracked then
-            Parser:AddMiss(src, "Auto Attack", tgt, avoid)
-        end
-        if tgtTracked then
-            Parser:AddTakenAvoid(tgt, "Auto Attack", src or "Unknown", avoid)
+        if avoid then
+            if srcTracked then
+                Parser:AddMiss(src, "Auto Attack", tgt, avoid)
+            end
+            if tgtTracked then
+                Parser:AddTakenAvoid(tgt, "Auto Attack", src or "Unknown", avoid)
+            end
         end
     end
 end
@@ -601,6 +637,29 @@ local function OnDispel()
     Parser:AddDispel(src, spell, tgt)
 end
 
+local recentThreatCast = {}
+local recentThreatCastPrune = 0
+
+local function ShouldCountThreatCast(casterKey, spellId, targetGuid)
+    local now = GetTime()
+    if (now - recentThreatCastPrune) > 5.0 then
+        recentThreatCastPrune = now
+        local k, ts
+        for k, ts in pairs(recentThreatCast) do
+            if (now - ts) > 1.0 then
+                recentThreatCast[k] = nil
+            end
+        end
+    end
+    local key = tostring(casterKey or "") .. "|" .. tostring(spellId or "") .. "|" .. tostring(targetGuid or "")
+    local prev = recentThreatCast[key]
+    if prev and (now - prev) < 0.05 then
+        return false
+    end
+    recentThreatCast[key] = now
+    return true
+end
+
 -- AURA_CAST: spellId, casterGuid, targetGuid [, effect, ...]
 -- Used for hard-CC correlation and for non-damaging threat apps (Sunder,
 -- Growl, Torment, Demo Shout, …) so estimates work without falling back
@@ -637,7 +696,7 @@ local function OnAuraCast()
 
     -- Flat threat casts: pet Growl / VW Torment / player Sunder, etc.
     -- AddThreatCast resolves pets → owner and filters to known abilities.
-    if src and Parser.AddThreatCast then
+    if src and Parser.AddThreatCast and ShouldCountThreatCast(casterGuid or src, spellId, targetGuid) then
         Parser:AddThreatCast(src, name)
     end
 
@@ -655,11 +714,12 @@ local function OnAuraCast()
     }
 end
 
--- BUFF_ADDED / BUFF_REMOVED: guid, slot, spellId, ...
+-- BUFF_ADDED / BUFF_REMOVED: guid, luaSlot, spellId, stackCount, auraLevel, auraSlot, state
+-- state: 0=added, 1=removed, 2=stack/modified. Skip state == 2 for add/remove transitions.
 -- No caster on these events. Pair with AURA_CAST (caster+target) when possible.
 local function OnBuffAdded()
-    local guid, spellId = arg1, arg3
-    spellId = tonumber(spellId)
+    if tonumber(arg7) == 2 then return end
+    local guid, spellId = arg1, tonumber(arg3)
     if not guid or not spellId then return end
     local name = SpellName(spellId)
     if not name or not NS.IsAbsorbShield or not NS.IsAbsorbShield(name) then return end
@@ -684,8 +744,8 @@ local function OnBuffAdded()
 end
 
 local function OnBuffRemoved()
-    local guid, spellId = arg1, arg3
-    spellId = tonumber(spellId)
+    if tonumber(arg7) == 2 then return end
+    local guid, spellId = arg1, tonumber(arg3)
     if not guid or not spellId then return end
     local name = SpellName(spellId)
     if not name or not NS.IsAbsorbShield or not NS.IsAbsorbShield(name) then return end
@@ -695,10 +755,10 @@ local function OnBuffRemoved()
     end
 end
 
--- DEBUFF_ADDED: guid, slot, spellId, stacks, ...
+-- DEBUFF_ADDED: guid, luaSlot, spellId, stackCount, auraLevel, auraSlot, state
 local function OnDebuffAdded()
-    local guid, spellId = arg1, arg3
-    spellId = tonumber(spellId) or tonumber(arg2)
+    if tonumber(arg7) == 2 then return end
+    local guid, spellId = arg1, tonumber(arg3)
     if not guid or not spellId then return end
     local name = SpellName(spellId)
     if not IsHardCCName(name) then return end
@@ -735,10 +795,11 @@ local function OnDebuffAdded()
     Parser:AddEnemyCC(name, targetName, dur)
 end
 
--- DEBUFF_REMOVED: guid, slot, spellId, ...
+-- DEBUFF_REMOVED: guid, luaSlot, spellId, stackCount, auraLevel, auraSlot, state
 local function OnDebuffRemoved()
-    local guid, spellId = arg1, arg3
-    spellId = tonumber(spellId) or tonumber(arg2)
+    if tonumber(arg7) == 2 then return end
+    local guid, spellId = arg1, tonumber(arg3)
+    if not guid or not spellId then return end
     local name = SpellName(spellId)
     if not IsHardCCName(name) then return end
     local targetName = NameFromGuid(guid)
@@ -751,7 +812,8 @@ local function OnUnitDied()
     local guid = arg1
     local name = NameFromGuid(guid) or arg2
     if name and IsTrackedName(name) then
-        Parser:AddDeath(name, nil)
+        local lastHit = NS.state and NS.state.lastHitOn and NS.state.lastHitOn[name] or nil
+        Parser:AddDeath(name, lastHit)
     end
 end
 

@@ -207,7 +207,7 @@ function OM:LoadTestData()
                 tGlances = math.floor((detail.glances or 0) / n)
                 if ti == 1 then tGlances = tGlances + math.mod(detail.glances or 0, n) end
             end
-            tCount = tHits + tCrits + tGlances
+            local tCount = tHits + tCrits + tGlances
             if tCount < 1 and share > 0 then tCount = 1 end
             local avg = 0
             if tCount > 0 then avg = share / tCount end
@@ -382,7 +382,7 @@ function OM:LoadTestData()
     OM.data.bossFights = OM.data.bossFights or {}
 end
 
-DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GreedMeter|r v1.2.1 loaded. Type /gdm")
+DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GreedMeter|r v1.4.8 loaded. Type /gdm")
 
 
 -- ============================================================

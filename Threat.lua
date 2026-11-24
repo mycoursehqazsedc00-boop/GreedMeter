@@ -480,9 +480,18 @@ local function HasSuperWoW()
     return (SUPERWOW_VERSION or SUPERWOW_STRING or SuperWoW) and true or false
 end
 
+local NP_GetUnitGUID = GetUnitGUID
+
 -- Returns a stable GUID string for a unit token, or nil
 local function GetUnitGUID(unit)
     if not unit then return nil end
+    -- Nampower: GetUnitGUID(unit)
+    if type(NP_GetUnitGUID) == "function" then
+        local ok, g = pcall(NP_GetUnitGUID, unit)
+        if ok and type(g) == "string" and g ~= "" then
+            return g
+        end
+    end
     -- Enhanced clients: second return of UnitExists may be a GUID
     local exists, guid = UnitExists(unit)
     if exists and type(guid) == "string" and guid ~= "" and guid ~= unit then
@@ -2409,7 +2418,7 @@ local function RunnerUpThreatPercentOnTarget()
         for name, row in pairs(Threat.threats) do
             if row and not row.isPull and name ~= me and name ~= petName then
                 local p = tonumber(row.perc) or 0
-                if p > maxOther and p < 100 then
+                if p > maxOther then
                     maxOther = p
                 end
             end
@@ -2652,7 +2661,7 @@ local function UpdateSingleNameplateGlow(plate, unit)
         return
     end
 
-    local trackKey = (UnitGUID and UnitGUID(unit)) or plate
+    local trackKey = GetUnitGUID(unit) or (UnitGUID and UnitGUID(unit)) or plate
 
     if IsTankTargetSelf(targetUnit) then
         plateWasTanking[trackKey] = true
@@ -2660,8 +2669,8 @@ local function UpdateSingleNameplateGlow(plate, unit)
         -- Holding aggro: check if #TMTv1= reports near-loss for this mob GUID
         local threshold = tonumber(OM:GetSetting("tankLossWarnPercent")) or 90
         local nearLoss = false
-        if UnitGUID and Threat.tankModeThreats then
-            local guid = UnitGUID(unit)
+        if Threat.tankModeThreats then
+            local guid = GetUnitGUID(unit) or (UnitGUID and UnitGUID(unit))
             local row = guid and Threat.tankModeThreats[guid] or nil
             if row and not row.isTest and tonumber(row.secondPerc) and row.secondPerc >= threshold then
                 nearLoss = true
@@ -2691,6 +2700,28 @@ local function UpdateSingleNameplateGlow(plate, unit)
     end
 end
 
+local function SeedActiveNameplates()
+    if not HAS_CNAMEPLATE then return end
+    local maxPlates = 40
+    if type(C_NamePlate.GetNamePlates) == "function" then
+        local plates = C_NamePlate.GetNamePlates()
+        if type(plates) == "table" then
+            local n = table.getn(plates)
+            if n > maxPlates then maxPlates = n end
+        end
+    end
+    local i
+    for i = 1, maxPlates do
+        local u = "nameplate" .. i
+        if UnitExists and UnitExists(u) then
+            local plate = C_NamePlate.GetNamePlateForUnit(u)
+            if plate then
+                activeNameplates[plate] = u
+            end
+        end
+    end
+end
+
 function Threat:RefreshNameplateGlows()
     if not HAS_CNAMEPLATE then return end
     local npGlowOn = OM and OM.GetSetting and OM:GetSetting("nameplateThreatGlow") == true
@@ -2705,6 +2736,9 @@ function Threat:RefreshNameplateGlows()
         HideAllNameplateGlows()
         return
     end
+    if next(activeNameplates) == nil then
+        SeedActiveNameplates()
+    end
     local plate, unit
     for plate, unit in pairs(activeNameplates) do
         UpdateSingleNameplateGlow(plate, unit)
@@ -2716,6 +2750,7 @@ end
 -- time, so this owns the full refresh path when f.mode == "threat".
 function Threat:RefreshFrame(f)
     if not f then return end
+    local prevReadIndex = OM and OM._readIndex
     if OM then OM._readIndex = f.layoutIndex end
 
     -- Ensure test data is present when Test mode is on (no party required)
@@ -2922,6 +2957,7 @@ function Threat:RefreshFrame(f)
         f.emptyLabel:SetText("")
         f.emptyLabel:Hide()
     end
+    if OM then OM._readIndex = prevReadIndex end
 end
 
 local function InstallUIHooks()
@@ -3410,6 +3446,7 @@ eventFrame:SetScript("OnEvent", function()
             eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
             eventFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
             eventFrame:RegisterEvent("UNIT_TARGET")
+            SeedActiveNameplates()
         end
         return
     end
@@ -3432,6 +3469,10 @@ eventFrame:SetScript("OnEvent", function()
     elseif event == "NAME_PLATE_UNIT_REMOVED" then
         if HAS_CNAMEPLATE and arg1 then
             local plate = C_NamePlate.GetNamePlateForUnit(arg1)
+            local guid = GetUnitGUID(arg1) or (UnitGUID and UnitGUID(arg1))
+            if guid then
+                plateWasTanking[guid] = nil
+            end
             if plate then
                 activeNameplates[plate] = nil
                 plateWasTanking[plate] = nil
@@ -3835,6 +3876,7 @@ end)
 -- ============================================================
 
 function Threat:OnLoad()
+    if not OM._varsReady then return end
     if OM.InitDB and not OM.db then
         OM:InitDB()
     end
@@ -3897,9 +3939,13 @@ function Threat:OnLoad()
                 HideThreatWarnGlow()
                 HideAllNameplateGlows()
                 Threat:ClearTestData()
-            elseif OM:GetSetting("testMode") then
-                Threat:LoadTestData()
-                if UI and UI.Refresh then UI:Refresh() end
+            else
+                SeedActiveNameplates()
+                Threat:RefreshNameplateGlows()
+                if OM:GetSetting("testMode") then
+                    Threat:LoadTestData()
+                    if UI and UI.Refresh then UI:Refresh() end
+                end
             end
             if checked then
                 DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GreedMeter:|r Threat mode enabled. Pick a view and select it from Mode on a meter window.")

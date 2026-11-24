@@ -11,6 +11,7 @@ OM.inCombat = false
 OM.combatStart = 0
 OM.segment = "current"
 OM.modules = OM.modules or {}
+OM.moduleOrder = OM.moduleOrder or {}
 OM.combatLogRange = 200
 OM.combatLogRangeApplied = false
 OM.heuristicPets = OM.heuristicPets or {}
@@ -178,6 +179,9 @@ end
 -- ============================================================
 
 function OM:RegisterModule(name, module)
+    if not self.modules[name] then
+        table.insert(self.moduleOrder, name)
+    end
     self.modules[name] = module
     if module.OnLoad then
         module:OnLoad()
@@ -191,9 +195,16 @@ function OM:Fire(event, a1, a2, a3, a4, a5)
     if parser and parser[event] then
         parser[event](parser, a1, a2, a3, a4, a5)
     end
-    local name, mod
-    for name, mod in pairs(self.modules) do
-        if name ~= "Parser" and mod[event] then
+    -- OnLoad: initialize Threat before UI restores saved threat-mode frames
+    local threatEarly = (event == "OnLoad") and self.modules and self.modules.Threat
+    if threatEarly and threatEarly[event] then
+        threatEarly[event](threatEarly, a1, a2, a3, a4, a5)
+    end
+    local i
+    for i = 1, table.getn(self.moduleOrder) do
+        local name = self.moduleOrder[i]
+        local mod = self.modules[name]
+        if mod and name ~= "Parser" and not (threatEarly and name == "Threat") and mod[event] then
             mod[event](mod, a1, a2, a3, a4, a5)
         end
     end

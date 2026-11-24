@@ -88,7 +88,16 @@ function OM:InitDB()
     local k, v
     for k, v in pairs(self.defaults) do
         if GreedMeterDB[k] == nil then
-            GreedMeterDB[k] = v
+            if type(v) == "table" then
+                local copy = {}
+                local tk, tv
+                for tk, tv in pairs(v) do
+                    copy[tk] = tv
+                end
+                GreedMeterDB[k] = copy
+            else
+                GreedMeterDB[k] = v
+            end
         end
     end
     -- Split older combined partyReset into join/leave

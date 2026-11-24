@@ -64,6 +64,24 @@ end
 
 
 -- Resolve "You" and SuperWoW-style pet ownership names
+local NORMALIZE_BAD_WORDS = {
+    hit=true, hits=true, crit=true, crits=true,
+    miss=true, misses=true, missed=true,
+    dodge=true, dodges=true, parry=true, parries=true,
+    block=true, blocks=true, blocked=true,
+    resist=true, resists=true, resisted=true,
+    glance=true, glancing=true, crush=true, crushing=true,
+    absorb=true, absorbs=true, absorbed=true,
+    by=true, from=true, ["for"]=true, with=true, to=true, ["on"]=true,
+    you=true, your=true, attack=true, attacks=true,
+    of=true, the=true, a=true, an=true, is=true, are=true,
+    damage=true, healing=true, heal=true, heals=true, healed=true,
+    performs=true, casts=true, gains=true, fades=true,
+    suffers=true, afflicted=true, reflects=true, reflected=true,
+    partial=true, falls=true, dies=true, slain=true,
+    begins=true, able=true, unable=true,
+}
+
 local function NormalizeName(name)
     if not name or name == "" then return nil end
     if type(name) ~= "string" then name = tostring(name) end
@@ -78,24 +96,7 @@ local function NormalizeName(name)
     end
     -- Reject combat-log keywords that bad pattern captures treat as "targets"
     local lower = string.lower(name)
-    local BAD = {
-        hit=true, hits=true, crit=true, crits=true,
-        miss=true, misses=true, missed=true,
-        dodge=true, dodges=true, parry=true, parries=true,
-        block=true, blocks=true, blocked=true,
-        resist=true, resists=true, resisted=true,
-        glance=true, glancing=true, crush=true, crushing=true,
-        absorb=true, absorbs=true, absorbed=true,
-        by=true, from=true, ["for"]=true, with=true, to=true, ["on"]=true,
-        you=true, your=true, attack=true, attacks=true,
-        of=true, the=true, a=true, an=true, is=true, are=true,
-        damage=true, healing=true, heal=true, heals=true, healed=true,
-        performs=true, casts=true, gains=true, fades=true,
-        suffers=true, afflicted=true, reflects=true, reflected=true,
-        partial=true, falls=true, dies=true, slain=true,
-        begins=true, able=true, unable=true,
-    }
-    if BAD[lower] then return nil end
+    if NORMALIZE_BAD_WORDS[lower] then return nil end
     -- Single-character / pure-number captures are never unit names
     if string.len(name) <= 1 then return nil end
     if tonumber(name) then return nil end
@@ -649,6 +650,8 @@ local function UnitLooksLikeBoss(unit)
     return false
 end
 
+local BOSS_CHECK_UNITS = { "target", "targettarget", "pettarget", "mouseover" }
+
 local function NoteEnemyHit(enemyName, amount)
     enemyName = NormalizeName(enemyName)
     if not enemyName or OM.players[enemyName] then return end
@@ -661,10 +664,9 @@ local function NoteEnemyHit(enemyName, amount)
     end
 
     -- While the unit is still available, remember if it matches boss criteria
-    local units = { "target", "targettarget", "pettarget", "mouseover" }
     local ui
-    for ui = 1, table.getn(units) do
-        local u = units[ui]
+    for ui = 1, table.getn(BOSS_CHECK_UNITS) do
+        local u = BOSS_CHECK_UNITS[ui]
         if UnitExists(u) and UnitName(u) == enemyName and UnitLooksLikeBoss(u) then
             ST.fightEnemyBossLike[enemyName] = true
             ST.fightIsBoss = true
@@ -1073,6 +1075,9 @@ function Parser:AddThreatCast(source, spell)
     source = ResolveSource(source)
     if not source then return end
     if not IsTracked(source) and not (OM.players and OM.players[source]) then return end
+
+    EnsureInCombat()
+    NoteActivity()
 
     local function apply(seg)
         if not seg then return end
@@ -1629,6 +1634,9 @@ function Parser:AddDeath(name, lastHit)
     end
 
     local killer, spell, amount = "?", "?", 0
+    if not lastHit and ST and ST.lastHitOn then
+        lastHit = ST.lastHitOn[name]
+    end
     if type(lastHit) == "table" then
         killer = lastHit.source or lastHit.killer or "?"
         spell = lastHit.spell or "?"

@@ -1373,6 +1373,7 @@ end
 -- Compact vs normal header (Hide Title setting)
 function UI:ApplyHeaderLayout(f, hideTitle, duration)
     if not f then return end
+    local prevReadIndex = OM and OM._readIndex
     if OM then OM._readIndex = f.layoutIndex end
     -- duration arg kept for API compat; no longer shown in header
     local compact = hideTitle and true or false
@@ -1635,11 +1636,13 @@ function UI:ApplyHeaderLayout(f, hideTitle, duration)
     f.headerHeight = headerH
     ApplyHeaderBarColor(f)
     self:LayoutBars(f)
+    if OM then OM._readIndex = prevReadIndex end
 end
 
 function UI:LayoutBars(f)
-    if f and OM then OM._readIndex = f.layoutIndex end
     if not f or not f.bars then return end
+    local prevReadIndex = OM and OM._readIndex
+    if OM then OM._readIndex = f.layoutIndex end
     local barH = (GetBarHeight and GetBarHeight()) or 16
     local fontSize = (GetFontSize and GetFontSize()) or 11
     local fw, fh = EffectiveFrameSize(f)
@@ -1688,21 +1691,21 @@ function UI:LayoutBars(f)
         end
         UpdateBarOutlines(bar)
     end
+    if OM then OM._readIndex = prevReadIndex end
 end
 
 function UI:RefreshFrame(f)
-    if f and OM then OM._readIndex = f.layoutIndex end
-    if f then
-        ApplyFrameBackgroundOpacity(f)
-    end
-    if f and f.mode and UI.IsModeEnabled and not UI.IsModeEnabled(f.mode) then
+    if not f then return end
+    local prevReadIndex = OM and OM._readIndex
+    if OM then OM._readIndex = f.layoutIndex end
+    ApplyFrameBackgroundOpacity(f)
+    if f.mode and UI.IsModeEnabled and not UI.IsModeEnabled(f.mode) then
         local nextMode = (UI.FirstEnabledMode and UI.FirstEnabledMode()) or "damage"
         f.mode = nextMode
         if f.title and MODE_LABELS then
             f.title:SetText(MODE_LABELS[nextMode] or nextMode)
         end
     end
-    if not f then return end
     if not f.visibleBars then
         self:LayoutBars(f)
     end
@@ -2063,6 +2066,7 @@ function UI:RefreshFrame(f)
         f.emptyLabel:SetText("")
         f.emptyLabel:Hide()
     end
+    if OM then OM._readIndex = prevReadIndex end
 end
 
 function UI:ApplySettingsToFrames()
