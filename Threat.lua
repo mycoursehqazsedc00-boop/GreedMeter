@@ -570,9 +570,6 @@ local function RememberHostileUnit(unit)
 end
 
 local function RememberHostileTarget()
-    if not TankingModeEnabled() and not (Threat.AnyFrameInTankView and Threat:AnyFrameInTankView()) then
-        -- Still allow remember when a tank window is open even if threatView setting is single
-    end
     if UnitExists("target")
         and not UnitIsPlayer("target") and not UnitIsFriend("player", "target") then
         RememberHostileUnit("target")
@@ -623,15 +620,6 @@ local function GetLocalThreatModifier()
     end
 
     -- Scan buffs for major threat reducers (local player only)
-    local bi
-    for bi = 1, 32 do
-        local buffTexture = UnitBuff("player", bi)
-        if not buffTexture then break end
-        -- 1.12 without SuperWoW tooltip scanning only exposes texture;
-        -- use a conservative approach via tooltip if available.
-        -- Many private servers still expose the name via GameTooltip scan.
-    end
-
     -- Tooltip-based buff name scan (works on most 1.12 clients)
     if not Threat._buffTip then
         Threat._buffTip = CreateFrame("GameTooltip", "GreedMeterThreatBuffTip", nil, "GameTooltipTemplate")
