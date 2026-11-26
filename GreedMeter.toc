@@ -3,7 +3,7 @@
 ## Notes: Lightweight combat meter for Vanilla 1.12 (Damage, Healing, Dispels, Interrupts, CC, Damage Taken, and more)
 ## Author: iGreed
 ## Version: 1.4.8
-## OptionalDeps: CombatHub
+## OptionalDeps: CombatHub, pfUI
 ## SavedVariables: GreedMeterDB
 ## SavedVariablesPerCharacter: GreedMeterCharDB
 
@@ -26,5 +26,6 @@ UI\Init.lua
 UI\Frames.lua
 UI\Detail.lua
 UI\Settings.lua
+UI\Skin_pfUI.lua
 
 Threat.lua

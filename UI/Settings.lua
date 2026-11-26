@@ -2270,6 +2270,13 @@ local function BuildSettingsExtraPages(f, pageDisplay, pageAppearance, pageModes
     y = y - 22
     MakeSettingCheckbox(pageDisplay, "Self on top", 4, y, "selfOnTop",
         "Always show your bar first. Rank number stays your real place in the meter.")
+    y = y - 22
+    local pfuiCb = MakeSettingCheckbox(pageDisplay, "pfUI Skin", 4, y, "pfuiSkin",
+        "Synchronize meter windows and header buttons with your pfUI theme (requires pfUI).")
+    pfuiCb.onToggle = function()
+        if UI.ApplySettingsToFrames then UI:ApplySettingsToFrames() end
+        if UI.Refresh then UI:Refresh() end
+    end
     y = y - 24
 
     -- Right column: hide individual header buttons

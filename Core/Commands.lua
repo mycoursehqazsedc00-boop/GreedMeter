@@ -60,6 +60,20 @@ SlashCmdList["GREEDMETER"] = function(msg)
             DEFAULT_CHAT_FRAME:AddMessage("|cffff5555GreedMeter:|r Customization not loaded (UI/Customization.lua missing or failed).")
             DEFAULT_CHAT_FRAME:AddMessage("|cffff5555|r Loaded flag: " .. tostring(OM._customizationLoaded))
         end
+    elseif cmd == "skin" or cmd == "pfui" then
+        local cur = OM.GetSetting and OM:GetSetting("pfuiSkin") == true
+        local nextVal = not cur
+        if OM.SetSetting then
+            OM:SetSetting("pfuiSkin", nextVal, 0)
+        end
+        local ui = OM.modules and OM.modules.UI
+        if ui and ui.ApplySettingsToFrames then
+            ui:ApplySettingsToFrames()
+        end
+        if ui and ui.Refresh then
+            ui:Refresh()
+        end
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GreedMeter:|r pfUI skin " .. (nextVal and "|cff33ff33enabled|r." or "|cffff5555disabled|r."))
     elseif cmd == "pause" then
         if OM.TogglePause then
             OM:TogglePause()

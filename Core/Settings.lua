@@ -74,6 +74,7 @@ OM.defaults = {
     tankLossWarnText = true, -- tank mode: show on-screen alert with mob and player name
     tankLossWarnPercent = 90, -- tank mode: warn when 2nd threat reaches this %
     nameplateThreatGlow = true, -- ClassicAPI: glow enemy nameplates when losing/without threat
+    pfuiSkin = false, -- Sync window & header buttons with pfUI style when pfUI is loaded
 }
 
 -- Per-character layout defaults
